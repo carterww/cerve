@@ -31,6 +31,9 @@
 #define static_assert_msg _Static_assert
 #endif
 
+static const char *assert_failed_context = "cerve Assertion failed";
+static const char *panic_context = "cerve Panic!";
+
 CC_ATTR_NORETURN
 static void print_and_fail(const char *context, const char *file_name,
 			   int line_number)
@@ -50,7 +53,7 @@ static void print_and_fail(const char *context, const char *file_name,
 
 #define cpanic()                                                           \
 	do {                                                               \
-		print_and_fail(assert_failed_context, __FILE__, __LINE__); \
+		print_and_fail(panic_context, __FILE__, __LINE__); \
 	} while (0)
 #else
 #define cassert(expr) \

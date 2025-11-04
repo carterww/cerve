@@ -41,6 +41,7 @@
 #define cc_unreachable() __builtin_unreachable()
 #define cc_assume_aligned(p, a) __builtin_assume_aligned(p, a)
 #define cc_prefetch(p) __builtin_prefetch(p)
+#define cc_has_builtin(b) __has_builtin(b)
 
 #define CC_ATTR_ALIGNED(a) __attribute__((aligned(a)))
 #define CC_ATTR_ALLOC_ALIGNED(arg_p) __attribute__((alloc_align(arg_p)))
