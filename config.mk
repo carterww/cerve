@@ -115,7 +115,7 @@ quiet_AR = echo " AR    $(subst $(ROOTDIR)/,,$@)"
 Q = @
 endif
 
-LIB_SRCS :=
+LIB_SRCS := $(SRCDIR)/cerve_hash.c $(SRCDIR)/cerve_map.c
 CLI_SRCS := $(CLI_SRCDIR)/main.c
 
 LIB_OBJS := $(patsubst $(ROOTDIR)/%.c,$(BUILDDIR)/%.o,$(LIB_SRCS))
