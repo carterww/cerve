@@ -54,6 +54,7 @@
 #define CC_ATTR_WEAK __attribute__((weak))
 #define CC_ATTR_PUBLIC __attribute__((visibility("default")))
 #define CC_ATTR_PRIVATE __attribute__((visibility("hidden")))
+#define CC_ATTR_MAY_ALIAS __attribute__((__may_alias__))
 
 #endif /* gcc or clang */
 

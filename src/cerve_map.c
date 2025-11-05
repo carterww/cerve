@@ -80,9 +80,9 @@ static size_t calc_p2cap(size_t len, float load_factor_max)
 {
 	// Gives the cap needed to maintain cap * load_factor_max = len
 	// rounded up to nearest int
-	size_t cap = (size_t)ceilf((float)len / load_factor_max);
+	float cap_rnd = ceilf((float)len / load_factor_max);
 	// Round up to power of 2
-	return p2_roundup(cap);
+	return p2_roundup((size_t)cap_rnd);
 }
 
 // Calculate the effective load factor. Effective load factor is
