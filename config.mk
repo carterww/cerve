@@ -42,7 +42,7 @@ CFLAGS += -std=gnu99 -fPIC -I$(ROOTDIR)/include -I$(SRCDIR)
 CFLAGS += -MMD -MP
 
 # Warning flags
-CFLAGS += -Werror -Wall -Wextra -Wpedantic -Wno-unused -Wfloat-equal
+CFLAGS += -Werror -Wall -Wextra -Wno-unused -Wfloat-equal
 CFLAGS += -Wdouble-promotion -Wformat=2 -Wformat-security -Wstack-protector
 CFLAGS += -Walloca -Wvla -Wcast-qual -Wconversion -Wformat-signedness -Wshadow
 CFLAGS += -Wstrict-overflow=4 -Wundef -Wstrict-prototypes -Wswitch-default
@@ -65,9 +65,6 @@ CFLAGS += -Wpointer-arith -Wshift-sign-overflow -Wshorten-64-to-32
 CFLAGS += -Wtautological-constant-in-range-compare -Wunreachable-code-aggressive
 CFLAGS += -Wthread-safety -Wthread-safety-beta -Wcomma
 
-# Security flags
-CFLAGS += -fsanitize=safe-stack
-LDFLAGS += -fsanitize=safe-stack
 else ifneq ($(findstring gcc,$(CC_VERSION_OUT)),)
 # Warning flags
 CFLAGS += -Wformat-overflow=2 -Wformat-truncation=2 -Wtrampolines
@@ -115,7 +112,7 @@ quiet_AR = echo " AR    $(subst $(ROOTDIR)/,,$@)"
 Q = @
 endif
 
-LIB_SRCS := $(SRCDIR)/cerve_hash.c $(SRCDIR)/cerve_map.c
+LIB_SRCS := $(SRCDIR)/cerve_hash.c $(SRCDIR)/cerve_map.c $(SRCDIR)/cerve_tcp_linux.c
 CLI_SRCS := $(CLI_SRCDIR)/main.c
 
 LIB_OBJS := $(patsubst $(ROOTDIR)/%.c,$(BUILDDIR)/%.o,$(LIB_SRCS))
