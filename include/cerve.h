@@ -18,4 +18,6 @@
 #ifndef CERVE_H
 #define CERVE_H
 
+#include <cerve_http.h>
+
 #endif /* CERVE_H */
