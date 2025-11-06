@@ -131,20 +131,20 @@ int cerve_tcp_bind(struct cerve_tcp_conn *conn, const char *ip_addr,
 	cassert(ip_addr != NULL);
 
 	uint16_t port_netord = htons(port_hostord);
-	if (strchr(ip_addr, ':')) {
-		uint8_t ip6_addr_netord[16];
-		int ip6_err = cerve_tcp_ip6_parse(ip_addr, ip6_addr_netord);
-		if (ip6_err) {
-			return ip6_err;
-		}
-		return cerve_tcp_bind_ip6(conn, ip6_addr_netord, port_netord);
-	} else if (strchr(ip_addr, '.')) {
+	if (strchr(ip_addr, '.')) {
 		uint32_t ip4_addr_netord;
 		int valid_ip4 = cerve_tcp_ip4_parse(ip_addr, &ip4_addr_netord);
 		if (valid_ip4) {
 			return valid_ip4;
 		}
 		return cerve_tcp_bind_ip4(conn, ip4_addr_netord, port_netord);
+	} else if (strchr(ip_addr, ':')) {
+		uint8_t ip6_addr_netord[16];
+		int ip6_err = cerve_tcp_ip6_parse(ip_addr, ip6_addr_netord);
+		if (ip6_err) {
+			return ip6_err;
+		}
+		return cerve_tcp_bind_ip6(conn, ip6_addr_netord, port_netord);
 	} else {
 		return EINVAL;
 	}
