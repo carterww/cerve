@@ -333,6 +333,23 @@ void *cerve_map_get(const struct cerve_map *map, void *key, size_t key_len)
 	return map->data[idx];
 }
 
+void *cerve_map_get_precomp_hash(const struct cerve_map *map, void *key,
+				 size_t key_len, uint64_t hash)
+{
+	size_t idx;
+
+	uint8_t hash_trunc = hash_truncate(hash);
+	size_t cap_mask = map->cap - 1;
+	size_t start_idx = hash & cap_mask;
+
+	bool found = cerve_map_get_index_with_context(map, key, key_len, &idx, hash_trunc, start_idx);
+	if (!found) {
+		return NULL;
+	}
+	cassert(idx < map->cap);
+	return map->data[idx];
+}
+
 int cerve_map_set(struct cerve_map *map, void *key, size_t key_len, void *data)
 {
 	assert_map_initialized(map);

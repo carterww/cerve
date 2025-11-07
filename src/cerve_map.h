@@ -55,9 +55,13 @@ int cerve_map_init_default(struct cerve_map *map, size_t len,
 void cerve_map_deinit(struct cerve_map *map);
 
 void *cerve_map_get(const struct cerve_map *map, void *key, size_t key_len);
+void *cerve_map_get_precomp_hash(const struct cerve_map *map, void *key,
+				 size_t key_len, uint64_t hash);
 int cerve_map_set(struct cerve_map *map, void *key, size_t key_len, void *data);
-int cerve_map_set_no_rehash(struct cerve_map *map, void *key, size_t key_len, void *data);
-int cerve_map_delete(struct cerve_map *map, void *key, size_t key_len, void **data);
+int cerve_map_set_no_rehash(struct cerve_map *map, void *key, size_t key_len,
+			    void *data);
+int cerve_map_delete(struct cerve_map *map, void *key, size_t key_len,
+		     void **data);
 int cerve_map_rehash(struct cerve_map *map, size_t len);
 
 #endif /* CERVE_SRC_MAP_H */
