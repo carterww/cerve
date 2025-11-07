@@ -45,6 +45,7 @@
 
 #define CC_ATTR_ALIGNED(a) __attribute__((aligned(a)))
 #define CC_ATTR_ALLOC_ALIGNED(arg_p) __attribute__((alloc_align(arg_p)))
+#define CC_ATTR_NONNULL(...) __attribute__((nonnull(__VA_ARGS__)))
 #define CC_ATTR_NORETURN __attribute__((noreturn))
 #define CC_ATTR_PACKED __attribute__((packed))
 #define CC_ATTR_ALWAYS_INLINE __inline__ __attribute__((always_inline))

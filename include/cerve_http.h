@@ -26,19 +26,21 @@ enum cerve_http_version {
 	CERVE_HTTP_VERSION_11 = 0,
 	CERVE_HTTP_VERSION_20,
 	CERVE_HTTP_VERSION_30,
+	CERVE_HTTP_VERSION_10,
 	CERVE_HTTP_VERSION_AUTO,
 };
 
 enum cerve_http_method {
 	CERVE_HTTP_METHOD_GET = 0,
-	CERVE_HTTP_METHOD_HEAD,
 	CERVE_HTTP_METHOD_POST,
 	CERVE_HTTP_METHOD_PUT,
 	CERVE_HTTP_METHOD_PATCH,
 	CERVE_HTTP_METHOD_DELETE,
+	CERVE_HTTP_METHOD_HEAD,
 	CERVE_HTTP_METHOD_CONNECT,
 	CERVE_HTTP_METHOD_OPTIONS,
 	CERVE_HTTP_METHOD_TRACE,
+	CERVE_HTTP_METHOD_INVALID,
 };
 
 // Bitmask of HTTP methods. This allows the user to set the
@@ -257,6 +259,16 @@ void cerve_http_headers_iter_init(const struct cerve_http_headers *headers,
 // On error, false is returned and header_next is undefined.
 bool cerve_http_headers_iter_next(struct cerve_http_headers_iter *iter,
 				  struct cerve_http_header *header_next);
+
+// Returns true if the header name is a valid HTTP header name.
+// Returns false if:
+// - A non-tchar character is present
+//   (https://datatracker.ietf.org/doc/html/rfc9110#name-tokens)
+// - An uppercase alphabetical char is present.
+//
+// Cerve will eventually support HTTP 2.0. HTTP 2.0 forces header
+// names to be lower case so cerve also forces this.
+bool cerve_http_header_valid_name(const char *name, size_t len);
 
 enum cerve_http_server_opt {
 	// uint64_t (ms): Maximum time to read an HTTP request.
