@@ -23,6 +23,8 @@
 
 #include <cerve_http.h>
 
+#include "cerve_http_headers.h"
+
 enum cerve_http_request_parse_state {
 	CERVE_HTTP_REQUEST_PARSE_STATUS_LINE = 0,
 	CERVE_HTTP_REQUEST_PARSE_HEADERS,
@@ -30,7 +32,7 @@ enum cerve_http_request_parse_state {
 	CERVE_HTTP_REQUEST_PARSE_DONE,
 };
 
-enum cerve_http_path_err {
+enum cerve_http_parse_path_err {
 	CERVE_HTTP_PATH_ERR_OK = 0,
 	CERVE_HTTP_PATH_ERR_NOT_FOUND,
 	CERVE_HTTP_PATH_ERR_BAD_FORM,
@@ -38,23 +40,33 @@ enum cerve_http_path_err {
 	CERVE_HTTP_PATH_ERR_BAD_PCT_ENCODE,
 };
 
-enum cerve_http_status_line_err {
+enum cerve_http_parse_status_line_err {
 	CERVE_HTTP_SL_ERR_OK = 0,
+	CERVE_HTTP_SL_ERR_INCOMPLETE,
 	CERVE_HTTP_SL_ERR_BAD_METHOD,
 	CERVE_HTTP_SL_ERR_BAD_PATH,
 	CERVE_HTTP_SL_ERR_BAD_VERSION,
 	CERVE_HTTP_SL_ERR_BAD_LINE,
-	CERVE_HTTP_SL_ERR_INCOMPLETE,
 	CERVE_HTTP_SL_ERR_HTTP2,
 };
 
+enum cerve_http_parse_headers_err {
+	CERVE_HTTP_HDR_ERR_OK = 0,
+	CERVE_HTTP_HDR_ERR_INCOMPLETE,
+	CERVE_HTTP_HDR_ERR_MISSING_COLON,
+	CERVE_HTTP_HDR_ERR_NAME_NOT_TOKEN,
+	CERVE_HTTP_HDR_ERR_MAP_ADD_FAIL,
+};
+
 struct cerve_http_request_internal {
-	struct cerve_http_request req;
 	// Same as req.raw but not const. This allows Cerve to mutate it while
 	// preventing the user from doing it.
 	char *buf;
 	char *parse_pos;
+	size_t content_length;
 	enum cerve_http_request_parse_state state;
+	struct cerve_http_request req;
+	struct cerve_http_headers headers_map;
 
 	// Context that a parsing function may set to provide more details
 	// on error. Think of this like an errno
@@ -70,11 +82,14 @@ int cerve_http_is_token(const char *s, size_t len);
 enum cerve_http_method cerve_http_parse_method(const char *method, size_t len);
 enum cerve_http_version cerve_http_parse_version(const char *version,
 						 size_t len);
-enum cerve_http_path_err cerve_http_parse_path(char *path, size_t len,
+enum cerve_http_parse_path_err cerve_http_parse_path(char *path, size_t len,
 					       size_t *len_new, char **query,
 					       size_t *query_len);
 
-enum cerve_http_status_line_err
+enum cerve_http_parse_status_line_err
 cerve_http_parse_status_line(struct cerve_http_request_internal *state);
+
+enum cerve_http_parse_headers_err
+cerve_http_parse_headers(struct cerve_http_request_internal *state);
 
 #endif /* CERVE_SRC_HTTP_PARSE_H */

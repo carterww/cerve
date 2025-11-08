@@ -15,7 +15,7 @@
  * details.
  */
 
-#include "cerve_cc.h"
+#include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -23,6 +23,7 @@
 
 #include <cerve_http.h>
 
+#include "cerve_cc.h"
 #include "cerve_debug.h"
 #include "cerve_http_parse.h"
 
@@ -110,6 +111,149 @@ static const uint8_t pchar_nonascii_bitmask[32] = {
 	0xFF, 0xFF, 0xFF, 0xFF
 };
 
+// I tested 4 implementations on small strings:
+// 1. Branching Add
+// 2. Branching bitwise OR
+// 3. Branchless
+// 4. Lookup
+//
+// Lookup was ~1-1.4ns faster/run on my machine on some of the most common
+// HTTP headers (camelcase and lowercase). This implementation has 1
+// major issue: if the lookup table is ever evicted from the L1 cache
+// it is almost certainly the slowest implementation by at least an
+// order of magnitude.
+static const unsigned char tchar_lower_lookup[127] = {
+	0x00,
+	0x01,
+	0x02,
+	0x03,
+	0x04,
+	0x05,
+	0x06,
+	0x07,
+	0x08,
+	0x09,
+	0x0A,
+	0x0B,
+	0x0C,
+	0x0D,
+	0x0E,
+	0x0F,
+	0x10,
+	0x11,
+	0x12,
+	0x13,
+	0x14,
+	0x15,
+	0x16,
+	0x17,
+	0x18,
+	0x19,
+	0x1A,
+	0x1B,
+	0x1C,
+	0x1D,
+	0x1E,
+	0x1F,
+	0x20,
+	0x21,
+	0x22,
+	0x23,
+	0x24,
+	0x25,
+	0x26,
+	0x27,
+	0x28,
+	0x29,
+	0x2A,
+	0x2B,
+	0x2C,
+	0x2D,
+	0x2E,
+	0x2F,
+	0x30,
+	0x31,
+	0x32,
+	0x33,
+	0x34,
+	0x35,
+	0x36,
+	0x37,
+	0x38,
+	0x39,
+	0x3A,
+	0x3B,
+	0x3C,
+	0x3D,
+	0x3E,
+	0x3F,
+	0x40,
+	// 'A'
+	0x61,
+	0x62,
+	0x63,
+	0x64,
+	0x65,
+	0x66,
+	0x67,
+	0x68,
+	0x69,
+	0x6A,
+	0x6B,
+	0x6C,
+	0x6D,
+	0x6E,
+	0x6F,
+	0x70,
+	0x71,
+	0x72,
+	0x73,
+	0x74,
+	0x75,
+	0x76,
+	0x77,
+	0x78,
+	0x79,
+	// 'Z'
+	0x7A,
+	0x5B,
+	0x5C,
+	0x5D,
+	0x5E,
+	0x5F,
+	0x60,
+	0x61,
+	0x62,
+	0x63,
+	0x64,
+	0x65,
+	0x66,
+	0x67,
+	0x68,
+	0x69,
+	0x6A,
+	0x6B,
+	0x6C,
+	0x6D,
+	0x6E,
+	0x6F,
+	0x70,
+	0x71,
+	0x72,
+	0x73,
+	0x74,
+	0x75,
+	0x76,
+	0x77,
+	0x78,
+	0x79,
+	0x7A,
+	0x7B,
+	0x7C,
+	0x7D,
+	0x7E,
+};
+
 // If c is not a valid hex digit, a number > 15 will be returned
 static unsigned char from_hex(char c)
 {
@@ -126,6 +270,17 @@ static unsigned char from_hex(char c)
 		base = ic - 16;
 	}
 	return (unsigned char)(ic - base);
+}
+
+CC_ATTR_NONNULL(1, 2)
+static int cerve_http_validate_and_normalize_header_name(char *name,
+							 char *name_end)
+{
+	while (name < name_end && cerve_http_is_tchar(*name)) {
+		int c = *name;
+		*name++ = (char)tchar_lower_lookup[c];
+	}
+	return name == name_end;
 }
 
 int cerve_http_is_tchar(char c)
@@ -250,9 +405,10 @@ enum cerve_http_version cerve_http_parse_version(const char *version,
 }
 
 CC_ATTR_NONNULL(1, 3, 4, 5)
-enum cerve_http_path_err cerve_http_parse_path(char *path, size_t len,
-					       size_t *len_new, char **query,
-					       size_t *query_len)
+enum cerve_http_parse_path_err cerve_http_parse_path(char *path, size_t len,
+						     size_t *len_new,
+						     char **query,
+						     size_t *query_len)
 {
 	*query = NULL;
 	*query_len = 0;
@@ -320,7 +476,7 @@ copy_and_inc:
 	return CERVE_HTTP_PATH_ERR_OK;
 }
 
-enum cerve_http_status_line_err
+enum cerve_http_parse_status_line_err
 cerve_http_parse_status_line(struct cerve_http_request_internal *state)
 {
 	cassert(state != NULL);
@@ -375,7 +531,7 @@ cerve_http_parse_status_line(struct cerve_http_request_internal *state)
 
 	char *query;
 	size_t query_len;
-	enum cerve_http_path_err path_err = cerve_http_parse_path(
+	enum cerve_http_parse_path_err path_err = cerve_http_parse_path(
 		path, path_len, &path_len, &query, &query_len);
 	if (path_err != CERVE_HTTP_PATH_ERR_OK) {
 		// Give the actual error to the caller
@@ -393,4 +549,75 @@ cerve_http_parse_status_line(struct cerve_http_request_internal *state)
 	// We don't udpate the state enum. The caller is responsible for that
 
 	return CERVE_HTTP_SL_ERR_OK;
+}
+
+enum cerve_http_parse_headers_err
+cerve_http_parse_headers(struct cerve_http_request_internal *state)
+{
+	cassert(state != NULL);
+	cassert(state->req.raw != NULL);
+	cassert(state->state == CERVE_HTTP_REQUEST_PARSE_HEADERS);
+	cassert(state->headers_map.type == CERVE_HTTP_HEADERS_MAP);
+
+	char *buf_end = state->buf + state->req.raw_len;
+	while (state->parse_pos < buf_end) {
+		size_t line_len;
+		char *hline_start = state->parse_pos;
+		char *hline_end = memmem(hline_start,
+					 (size_t)(buf_end - hline_start),
+					 "\r\n", 2);
+		// Check common case first
+		if (hline_end > hline_start) {
+			goto parse_line;
+		} else if (hline_end == hline_start) {
+			// End of headers section
+			state->parse_pos = hline_start + 2;
+			return CERVE_HTTP_HDR_ERR_OK;
+		} else {
+			// hline_end is NULL or less than hline_start. Second
+			// case isn't possible
+			return CERVE_HTTP_HDR_ERR_INCOMPLETE;
+		}
+parse_line:
+		// At this point we know there is a header to parse. We need to
+		// normalize it (set name to lowercase), validate it, and add it
+		// to the headers_map.
+		line_len = (size_t)(hline_end - hline_start);
+		char *colon = memchr(hline_start, ':', line_len);
+		if (colon == NULL) {
+			return CERVE_HTTP_HDR_ERR_MISSING_COLON;
+		}
+
+		if (!cerve_http_validate_and_normalize_header_name(hline_start,
+								   colon)) {
+			return CERVE_HTTP_HDR_ERR_NAME_NOT_TOKEN;
+		}
+
+		char *value = colon + 1;
+		while (cerve_http_is_ows(*value))
+			value += 1;
+
+		size_t name_len = (size_t)(colon - hline_start);
+		size_t value_len = (size_t)(hline_end - value);
+		// Is this possible? Not realistically. Could this cause major
+		// issues if it happened? Most definitely.
+		cassert(name_len <= UINT_MAX);
+		cassert(value_len <= UINT_MAX);
+
+		struct cerve_http_header header;
+		header.name = hline_start;
+		header.value = value;
+		header.name_len = (unsigned int)name_len;
+		header.value_len = (unsigned int)value_len;
+
+		int err = cerve_http_headers_map_add(&state->headers_map.map,
+						     &header);
+		if (err) {
+			state->err_ctx = (void *)(intptr_t)err;
+			return CERVE_HTTP_HDR_ERR_MAP_ADD_FAIL;
+		}
+
+		state->parse_pos = hline_end + 2;
+	}
+	return CERVE_HTTP_HDR_ERR_INCOMPLETE;
 }
