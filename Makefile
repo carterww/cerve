@@ -8,7 +8,7 @@ all: $(CLI_OUT)
 $(CLI_OUT): $(CLI_OBJS) $(STATIC_LIB_OUT)
 	@$(quiet_LD)
 	$(MKDIR_TAR)
-	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(CLI_OBJS) $(STATIC_LIB_OUT)
+	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(CLI_OBJS) $(STATIC_LIB_OUT) -lm
 
 $(STATIC_LIB_OUT): $(LIB_OBJS) | $(BUILDDIR)
 	@$(quiet_AR)

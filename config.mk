@@ -113,7 +113,7 @@ Q = @
 endif
 
 LIB_SRCS := $(SRCDIR)/cerve_hash.c $(SRCDIR)/cerve_map.c $(SRCDIR)/cerve_tcp_linux.c \
-	    $(SRCDIR)/cerve_http.c $(SRCDIR)/cerve_http_parse.c
+	    $(SRCDIR)/cerve_http.c $(SRCDIR)/cerve_http_parse.c $(SRCDIR)/cerve_http_headers.c
 CLI_SRCS := $(CLI_SRCDIR)/main.c
 
 LIB_OBJS := $(patsubst $(ROOTDIR)/%.c,$(BUILDDIR)/%.o,$(LIB_SRCS))
