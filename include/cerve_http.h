@@ -123,10 +123,10 @@ struct cerve_http_response {
 
 // name and value may not be NULL terminated. You must use the length.
 struct cerve_http_header {
-	const char *name;
-	size_t name_len;
-	const char *value;
-	size_t value_len;
+	char *name;
+	char *value;
+	unsigned int name_len;
+	unsigned int value_len;
 };
 
 // Return the size and alignment requirements for struct cerve_http_server.
