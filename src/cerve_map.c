@@ -126,6 +126,7 @@ static size_t calc_rehash_p2cap(const struct cerve_map *m, size_t len_new)
 
 static void assert_map_initialized(const struct cerve_map *map)
 {
+	(void)map;
 	cassert(map != NULL);
 	cassert(map->hashes != NULL);
 	cassert(map->keys != NULL);
@@ -221,7 +222,6 @@ int cerve_map_init(struct cerve_map *map, size_t len,
 	int err;
 
 	cassert(map != NULL);
-	cassert(free_data != NULL);
 	cassert(load_factor_max > 0.0f && load_factor_max <= 1.0f);
 
 	if (len < CERVE_MAP_LEN_MIN) {
@@ -259,7 +259,7 @@ void cerve_map_deinit(struct cerve_map *map)
 {
 	assert_map_initialized(map);
 
-	if (map->len != 0) {
+	if (map->free_data != NULL && map->len != 0) {
 		// Call free_data for each kv pair
 		for (size_t i = 0; i < map->cap; ++i) {
 			if (entry_state(map, i) == CERVE_MAP_ENTRY_TAKEN) {
@@ -324,13 +324,12 @@ static bool cerve_map_get_index(const struct cerve_map *map, void *key,
 
 void *cerve_map_get(const struct cerve_map *map, void *key, size_t key_len)
 {
-	size_t idx;
-	bool found = cerve_map_get_index(map, key, key_len, &idx);
-	if (!found) {
-		return NULL;
-	}
-	cassert(idx < map->cap);
-	return map->data[idx];
+	assert_map_initialized(map);
+	cassert(key != NULL);
+	cassert(key_len != 0);
+
+	uint64_t hash = map->hash_fn(key, key_len, map->hash_seed);
+	return cerve_map_get_precomp_hash(map, key, key_len, hash);
 }
 
 void *cerve_map_get_precomp_hash(const struct cerve_map *map, void *key,
@@ -338,11 +337,16 @@ void *cerve_map_get_precomp_hash(const struct cerve_map *map, void *key,
 {
 	size_t idx;
 
+	assert_map_initialized(map);
+	cassert(key != NULL);
+	cassert(key_len != 0);
+
 	uint8_t hash_trunc = hash_truncate(hash);
 	size_t cap_mask = map->cap - 1;
 	size_t start_idx = hash & cap_mask;
 
-	bool found = cerve_map_get_index_with_context(map, key, key_len, &idx, hash_trunc, start_idx);
+	bool found = cerve_map_get_index_with_context(map, key, key_len, &idx,
+						      hash_trunc, start_idx);
 	if (!found) {
 		return NULL;
 	}
@@ -354,6 +358,15 @@ int cerve_map_set(struct cerve_map *map, void *key, size_t key_len, void *data)
 {
 	assert_map_initialized(map);
 
+	uint64_t hash = map->hash_fn(key, key_len, map->hash_seed);
+	return cerve_map_set_precomp_hash(map, key, key_len, data, hash);
+}
+
+int cerve_map_set_precomp_hash(struct cerve_map *map, void *key, size_t key_len,
+			       void *data, uint64_t hash)
+{
+	assert_map_initialized(map);
+
 	float lf = calc_load_factor(map->len + 1, map->tombstones, map->cap);
 	if (lf > map->load_factor_max) {
 		int rehash_res = cerve_map_rehash_internal(map, map->cap * 2);
@@ -361,11 +374,25 @@ int cerve_map_set(struct cerve_map *map, void *key, size_t key_len, void *data)
 			return rehash_res;
 		}
 	}
-	return cerve_map_set_no_rehash(map, key, key_len, data);
+	return cerve_map_set_no_rehash_precomp_hash(map, key, key_len, data,
+						    hash);
 }
 
 int cerve_map_set_no_rehash(struct cerve_map *map, void *key, size_t key_len,
 			    void *data)
+{
+	assert_map_initialized(map);
+	cassert(key != NULL);
+	cassert(key_len != 0);
+
+	uint64_t hash = map->hash_fn(key, key_len, map->hash_seed);
+	return cerve_map_set_no_rehash_precomp_hash(map, key, key_len, data,
+						    hash);
+}
+
+int cerve_map_set_no_rehash_precomp_hash(struct cerve_map *map, void *key,
+					 size_t key_len, void *data,
+					 uint64_t hash)
 {
 	size_t idx;
 
@@ -373,15 +400,17 @@ int cerve_map_set_no_rehash(struct cerve_map *map, void *key, size_t key_len,
 	cassert(key != NULL);
 	cassert(key_len != 0);
 
-	uint64_t hash_full = map->hash_fn(key, key_len, map->hash_seed);
-	uint8_t hash_trunc = hash_truncate(hash_full);
+	uint8_t hash_trunc = hash_truncate(hash);
 	size_t cap_mask = map->cap - 1;
-	size_t start_idx = hash_full & cap_mask;
+	size_t start_idx = hash & cap_mask;
 
-	bool found = cerve_map_get_index_with_context(map, key, key_len, &idx, hash_trunc, start_idx);
+	bool found = cerve_map_get_index_with_context(map, key, key_len, &idx,
+						      hash_trunc, start_idx);
 	if (found) {
-		map->free_data(map->keys[idx].key, map->keys[idx].key_len,
-			       map->data[idx]);
+		if (map->free_data != NULL) {
+			map->free_data(map->keys[idx].key,
+				       map->keys[idx].key_len, map->data[idx]);
+		}
 		goto found_slot;
 	} else {
 		if (idx < map->cap) {
@@ -392,7 +421,6 @@ int cerve_map_set_no_rehash(struct cerve_map *map, void *key, size_t key_len,
 	// Searched whole map and found no empty or existing slot. Check for tombstones
 	for (size_t offset = 0; offset < map->cap; ++offset) {
 		idx = (start_idx + offset) & cap_mask;
-		uint8_t hash = map->hashes[idx];
 		if (entry_state(map, idx) == CERVE_MAP_ENTRY_TOMBSTONE) {
 			map->tombstones -= 1;
 			goto found_slot;
@@ -412,7 +440,19 @@ found_slot:
 	return 0;
 }
 
-int cerve_map_delete(struct cerve_map *map, void *key, size_t key_len, void **data)
+int cerve_map_delete(struct cerve_map *map, void *key, size_t key_len,
+		     void **data)
+{
+	assert_map_initialized(map);
+	cassert(key != NULL);
+	cassert(key_len != 0);
+
+	uint64_t hash = map->hash_fn(key, key_len, map->hash_seed);
+	return cerve_map_delete_precomp_hash(map, key, key_len, data, hash);
+}
+
+int cerve_map_delete_precomp_hash(struct cerve_map *map, void *key,
+				  size_t key_len, void **data, uint64_t hash)
 {
 	size_t idx;
 
@@ -420,15 +460,21 @@ int cerve_map_delete(struct cerve_map *map, void *key, size_t key_len, void **da
 	cassert(key != NULL);
 	cassert(key_len != 0);
 
-	bool found = cerve_map_get_index(map, key, key_len, &idx);
+	uint8_t hash_trunc = hash_truncate(hash);
+	size_t cap_mask = map->cap - 1;
+	size_t start_idx = hash & cap_mask;
+	bool found = cerve_map_get_index_with_context(map, key, key_len, &idx,
+						      hash_trunc, start_idx);
 	if (!found) {
 		*data = NULL;
 		return ENOENT;
 	}
 	cassert(idx < map->cap);
 
-	map->free_data(map->keys[idx].key, map->keys[idx].key_len,
-			map->data[idx]);
+	if (map->free_data) {
+		map->free_data(map->keys[idx].key, map->keys[idx].key_len,
+			       map->data[idx]);
+	}
 	map->hashes[idx] = 1;
 	map->keys[idx].key = NULL;
 	map->keys[idx].key_len = 0;
