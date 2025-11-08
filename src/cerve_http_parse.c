@@ -421,7 +421,6 @@ enum cerve_http_parse_path_err cerve_http_parse_path(char *path, size_t len,
 			return CERVE_HTTP_PATH_ERR_BAD_FORM;
 		}
 	}
-	size_t len_loss = 0;
 	char *end = path + len;
 	char *read = path + 1;
 	char *write = path + 1;
@@ -453,7 +452,6 @@ enum cerve_http_parse_path_err cerve_http_parse_path(char *path, size_t len,
 			}
 			c = (char)val;
 			read += 2;
-			len_loss += 2;
 			goto copy_and_inc;
 		} else if (c == '?') {
 			size_t move_bytes = (size_t)(end - read);
@@ -468,7 +466,11 @@ copy_and_inc:
 		*write++ = c;
 		c = *(++read);
 	}
-	*len_new = len - len_loss;
+	if (*query != NULL) {
+		*len_new = (size_t)(*query - path);
+	} else {
+		*len_new = (size_t)(write - path);
+	}
 	if (end > write) {
 		// Fill replaced bytes with white space
 		memset(write, ' ', (size_t)(end - write));
