@@ -161,6 +161,7 @@ int main(void)
 
 	unsigned long long start, end;
 	strcpy(req->buf, example_request);
+	req->req.raw_len = sizeof(example_request) - 1;
 	start = time_start();
 	int res = cerve_http_request_handle_new_data(req);
 	end = time_end();

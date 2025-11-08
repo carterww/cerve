@@ -62,6 +62,7 @@ struct cerve_http_request_internal {
 	// Same as req.raw but not const. This allows Cerve to mutate it while
 	// preventing the user from doing it.
 	char *buf;
+	size_t buf_cap;
 	char *parse_pos;
 	size_t content_length;
 	enum cerve_http_request_parse_state state;

@@ -56,6 +56,7 @@ static const struct cerve_http_server_cfg http_server_cfg_default = {
 
 static const struct cerve_http_request_internal http_request_internal_default = {
 	.buf = NULL,
+	.buf_cap = 0,
 	.parse_pos = NULL,
 	.content_length = 0,
 	.state = CERVE_HTTP_REQUEST_PARSE_STATUS_LINE,
@@ -99,10 +100,11 @@ cerve_http_request_internal_create(const struct cerve_http_server_cfg *cfg)
 	char *buf = (char *)area + sizeof(*req);
 	memcpy(req, &http_request_internal_default, sizeof(*req));
 	req->buf = buf;
+	req->buf_cap = buf_max_size;
 	req->parse_pos = buf;
 	req->req.headers = &req->headers_map;
 	req->req.raw = buf;
-	req->req.raw_len = buf_max_size;
+	req->req.raw_len = 0;
 	err = cerve_http_headers_map_init(&req->headers_map.map,
 					  DEFAULT_HEADERS_LEN);
 	if (err == 0) {
@@ -167,7 +169,6 @@ switch_parse_state:
 			return 505;
 		default:
 			cpanic();
-			return -1;
 		}
 	case CERVE_HTTP_REQUEST_PARSE_HEADERS:
 		cassert(req->buf < req->parse_pos);
@@ -194,7 +195,6 @@ switch_parse_state:
 			return 500;
 		default:
 			cpanic();
-			return -1;
 		}
 	case CERVE_HTTP_REQUEST_PARSE_BODY:
 		return 200;
@@ -202,6 +202,5 @@ switch_parse_state:
 		CC_ATTR_FALLTHROUGH;
 	default:
 		cpanic();
-		return -1;
 	}
 }
