@@ -40,6 +40,14 @@ static const char *method_to_str[] = {
 	[CERVE_HTTP_METHOD_INVALID] = "",
 };
 
+static const uint8_t method_to_len[] = {
+	[CERVE_HTTP_METHOD_GET] = 3,	 [CERVE_HTTP_METHOD_POST] = 4,
+	[CERVE_HTTP_METHOD_PUT] = 3,	 [CERVE_HTTP_METHOD_PATCH] = 5,
+	[CERVE_HTTP_METHOD_DELETE] = 6,	 [CERVE_HTTP_METHOD_HEAD] = 4,
+	[CERVE_HTTP_METHOD_CONNECT] = 7, [CERVE_HTTP_METHOD_OPTIONS] = 7,
+	[CERVE_HTTP_METHOD_TRACE] = 5,	 [CERVE_HTTP_METHOD_INVALID] = 0,
+};
+
 // HTTP defines tokens as a sequence of "tchars." This bitmask
 // will hold a bit for every extended ASCII char. If the bit
 // is set, it is a tchar.
@@ -322,42 +330,26 @@ int cerve_http_is_token(const char *s, size_t len)
 CC_ATTR_NONNULL(1)
 enum cerve_http_method cerve_http_parse_method(const char *method, size_t len)
 {
-#define RET_METHOD_OR_BREAK(enm)                         \
-	if (!strncmp(method, method_to_str[enm], len)) { \
-		return enm;                              \
-	}                                                \
-	break
+	static const uint8_t method_from_bitman[16] = {
+		CERVE_HTTP_METHOD_PUT,	   CERVE_HTTP_METHOD_INVALID,
+		CERVE_HTTP_METHOD_INVALID, CERVE_HTTP_METHOD_INVALID,
+		CERVE_HTTP_METHOD_PATCH,   CERVE_HTTP_METHOD_INVALID,
+		CERVE_HTTP_METHOD_POST,	   CERVE_HTTP_METHOD_CONNECT,
+		CERVE_HTTP_METHOD_HEAD,	   CERVE_HTTP_METHOD_INVALID,
+		CERVE_HTTP_METHOD_OPTIONS, CERVE_HTTP_METHOD_INVALID,
+		CERVE_HTTP_METHOD_DELETE,  CERVE_HTTP_METHOD_GET,
+		CERVE_HTTP_METHOD_INVALID, CERVE_HTTP_METHOD_TRACE,
+	};
 
-	switch (*method) {
-	case 'G':
-		RET_METHOD_OR_BREAK(CERVE_HTTP_METHOD_GET);
-	case 'P':
-		switch (method[1]) {
-		case 'O':
-			RET_METHOD_OR_BREAK(CERVE_HTTP_METHOD_POST);
-		case 'U':
-			RET_METHOD_OR_BREAK(CERVE_HTTP_METHOD_PUT);
-		case 'A':
-			RET_METHOD_OR_BREAK(CERVE_HTTP_METHOD_PATCH);
-		default:
-			break;
-		}
-		break;
-	case 'D':
-		RET_METHOD_OR_BREAK(CERVE_HTTP_METHOD_DELETE);
-	case 'H':
-		RET_METHOD_OR_BREAK(CERVE_HTTP_METHOD_HEAD);
-	case 'C':
-		RET_METHOD_OR_BREAK(CERVE_HTTP_METHOD_CONNECT);
-	case 'O':
-		RET_METHOD_OR_BREAK(CERVE_HTTP_METHOD_OPTIONS);
-	case 'T':
-		RET_METHOD_OR_BREAK(CERVE_HTTP_METHOD_TRACE);
-	default:
-		break;
+	if (len < 3) {
+		return CERVE_HTTP_METHOD_INVALID;
 	}
-	return CERVE_HTTP_METHOD_INVALID;
-#undef RET_METHOD_OR_BREAK
+
+	// It came to me in a dream...
+	int idx = ((method[0] ^ 0x75) - method[1]) & 15;
+	enum cerve_http_method m = method_from_bitman[idx];
+	int is_method = len == method_to_len[m] && !memcmp(method, method_to_str[m], len);
+	return is_method ? m : CERVE_HTTP_METHOD_INVALID;
 }
 
 CC_ATTR_NONNULL(1)
